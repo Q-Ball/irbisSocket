@@ -97,7 +97,7 @@ def irbis2json(record):
 			fields[temp.group(1).strip()][num] = subfields
 		else:
 			fields[temp.group(1).strip()][num] = temp.group(2).strip()
-	return '{ "' + mfn + '": ' + json.dumps(fields) + ' }'
+	return '{ "' + mfn + '": ' + json.dumps(fields, ensure_ascii=False) + ' }'
 
 # Convert Irbis format to TXT
 def irbis2txt(record):
