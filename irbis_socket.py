@@ -64,7 +64,6 @@ def get_record_unifor(serverInfo, dbName, query):
 		print("# ERROR: Exception occured while getting record data in Unifor")
 		print(ex)
 
-
 def send_message(serverInfo, message):
 	try:
 		serverHost = serverInfo["serverHost"]
@@ -167,7 +166,6 @@ def connect_irbis(self, serverHost, serverPort, userName, userPassword):
 		s.send(message.encode())
 		data = s.recvfrom(64000)
 		s.close()
-
 		result = re.search(r'.{1}\r\n[0-9a-zA-Z]*?\r\n[0-9]*?\r\n[0-9]*?\r\n[0-9.]*?\r\n\r\n\r\n\r\n\r\n\r\n(.*?)\r\n', data[0].decode("cp1251","ignore"), re.MULTILINE).group(1).strip()
 		if (result == '0'):
 			counter += 1
@@ -183,42 +181,19 @@ def connect_irbis(self, serverHost, serverPort, userName, userPassword):
 def search_records_irbis(serverInfo, dbName, query, format):
 	try:
 		global counter
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 		data = get_record_unifor(serverInfo, dbName, query)
 		result = re.search(r'[0-9A-Z_]\r\n[0-9]*?\r\n[0-9]*?\r\n[0-9]*?\r\n\r\n\r\n\r\n\r\n\r\n\r\n(.*?)\r\n', data.decode("cp1251","ignore"), re.MULTILINE)
 		status = result.group(1).strip()
 		if (status == '0'):
 			records = []
-
 			for record in data.decode("utf-8","ignore").split("\r\n"): # quick-fix to get data from irbis' answer
 				if re.search(r'^[0-9]*?#(.*?)$', record):
-
 					if (format == "json"):
 						records.append(irbis2json(record))
 					else:
 						records.append(record)
-
-
 			counter += 1
 			return records
-
 		else:
 			print("# ERROR: Encountered error while reading Irbis records (Error code: " + status +")")
 	except ValueError as ex:
@@ -229,41 +204,19 @@ def search_records_irbis(serverInfo, dbName, query, format):
 def read_record_irbis(serverInfo, dbName, mfn, format):
 	try:
 		global counter
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 		data = get_record_unifor(serverInfo, dbName, "mfn="+mfn)
 		result = re.search(r'[0-9A-Z_]\r\n[0-9]*?\r\n[0-9]*?\r\n[0-9]*?\r\n\r\n\r\n\r\n\r\n\r\n\r\n(.*?)\r\n', data.decode("cp1251","ignore"), re.MULTILINE)
 		status = result.group(1).strip()
 		if (status == '0'):
 			records = []
-
 			for record in data.decode("utf-8","ignore").split("\r\n"): # quick-fix to get data from irbis' answer
 				if re.search(r'^[0-9]*?#(.*?)$', record):
-
 					if (format == "json"):
 						records.append(irbis2json(record))
 					else:
 						records.append(record)
-
 			counter += 1
 			return records
-
 		else:
 			print("# ERROR: Encountered error while reading Irbis records (Error code: " + status +")")
 	except ValueError as ex:
@@ -273,22 +226,10 @@ def read_record_irbis(serverInfo, dbName, mfn, format):
 # Add field to the specific record
 def add_field_irbis(serverInfo, dbName, mfn, field, subfield, content):
 	try:
-
-
-
-
-
-
 		block_record = "0"
 		actualize_record = "1"
 
-
-
-
 		# Get record before modification
-
-
-
 		data = get_record_unifor(serverInfo, dbName, "mfn="+mfn)
 		result = re.search(r'[0-9A-Z_]\r\n[0-9]*?\r\n[0-9]*?\r\n[0-9]*?\r\n\r\n\r\n\r\n\r\n\r\n\r\n(.*?)\r\n[0-9]*?\r\n(.*?)\r\n', data.decode("cp1251","ignore"), re.MULTILINE)
 		
@@ -296,17 +237,6 @@ def add_field_irbis(serverInfo, dbName, mfn, field, subfield, content):
 		temp = re.sub(r'(^[0-9]*?)#[0-9]*?\x1f(.*?)', r'\2', result.group(2).strip()) + '\x1f' + field + '#' + ('^' if subfield != '' else '') + content.encode("utf-8","ignore").decode("cp1251","ignore") +  "\n"
 
 		# Send record to Irbis server
-
-
-
-
-
-
-
-
-
-
-
 		status = send_record(serverInfo, dbName, block_record, actualize_record, temp)
 		if ("-" in status):
 		#if ("-" not in status):
@@ -320,36 +250,20 @@ def add_field_irbis(serverInfo, dbName, mfn, field, subfield, content):
 # Edit field of the specific record
 def edit_field_irbis(serverInfo, dbName, mfn, field, iteration, subfield, content):
 	try:
-
-
-
-
-
-
 		block_record = "0"
 		actualize_record = "1"
 		content = content.encode("utf-8","ignore").decode("cp1251","ignore")
 
-
-
-
 		# Get record before modification
-
-
-
 		data = get_record_unifor(serverInfo, dbName, "mfn="+mfn)
 		result = re.search(r'[0-9A-Z_]\r\n[0-9]*?\r\n[0-9]*?\r\n[0-9]*?\r\n\r\n\r\n\r\n\r\n\r\n\r\n(.*?)\r\n[0-9]*?\r\n(.*?)\r\n', data.decode("cp1251","ignore"), re.MULTILINE)
 		
 		# Edit field
 		temp = re.sub(r'(^[0-9]*?)#[0-9]*?\x1f(.*?)', r'\2', result.group(2).strip()) # remove useless rows
-
 		field_iterations = re.findall(field + r'#(.*?)(\x1f|$)', temp, re.DOTALL)
 		if (str(iteration) == "L"): iteration = len(field_iterations)-1 # get last occurence
 		field_iteration = field_iterations[iteration] # find specific field occurence
 		replaced_subfield = ''
-
-
-
 		if (subfield == ''):
 			replaced_subfield = content
 		else:
@@ -362,17 +276,6 @@ def edit_field_irbis(serverInfo, dbName, mfn, field, iteration, subfield, conten
 		temp = temp.replace(field_iteration[0], replaced_subfield)
 
 		# Send record to Irbis server
-
-
-
-
-
-
-
-
-
-
-
 		status = send_record(serverInfo, dbName, block_record, actualize_record, temp)
 		if ("-" in status):
 		#if ("-" not in status):
@@ -386,22 +289,10 @@ def edit_field_irbis(serverInfo, dbName, mfn, field, iteration, subfield, conten
 # Remove field of the specific record
 def remove_field_irbis(serverInfo, dbName, mfn, field, iteration, subfield):
 	try:
-
-
-
-
-
-
 		block_record = "0"
 		actualize_record = "1"
 
-
-
-
 		# Get record before modification
-
-
-
 		data = get_record_unifor(serverInfo, dbName, "mfn="+mfn)
 		result = re.search(r'[0-9A-Z_]\r\n[0-9]*?\r\n[0-9]*?\r\n[0-9]*?\r\n\r\n\r\n\r\n\r\n\r\n\r\n(.*?)\r\n[0-9]*?\r\n(.*?)\r\n', data.decode("cp1251","ignore"), re.MULTILINE)
 		
@@ -410,7 +301,6 @@ def remove_field_irbis(serverInfo, dbName, mfn, field, iteration, subfield):
 		field_iterations = re.findall(field + r'#(.*?)(\x1f|$)', temp, re.DOTALL)
 		if (str(iteration) == "L"): iteration = len(field_iterations)-1 # get last occurence
 		field_iteration = field_iterations[iteration] # find specific field occurence
-
 		if (subfield == ''):
 			temp = temp.replace("\x1f"+field+"#"+field_iteration[0], '')
 		else:
@@ -420,17 +310,6 @@ def remove_field_irbis(serverInfo, dbName, mfn, field, iteration, subfield):
 			temp = temp.replace(field_iteration[0], replaced_subfield)
 
 		# Send record to Irbis server
-
-
-
-
-
-
-
-
-
-
-
 		status = send_record(serverInfo, dbName, block_record, actualize_record, temp)
 		if ("-" in status):
 		#if ("-" not in status):
@@ -456,7 +335,6 @@ def disconnect_irbis(serverInfo):
 	s.send(message.encode())
 	data = s.recvfrom(64000)
 	s.close()
-
 	result = re.search(r'.{1}\r\n[0-9a-zA-Z]*?\r\n[0-9]*?\r\n[0-9]*?\r\n\r\n\r\n\r\n\r\n\r\n\r\n(.*?)\r\n', data[0].decode("cp1251","ignore"), re.MULTILINE).group(1).strip()
 	if (result != '0'):
 	#if (result == '0'):
