@@ -24,6 +24,10 @@ class irbisSocket:
 		return edit_field_irbis(self.serverInfo, dbName, mfn, field, iteration, subfield, content)
 	def removeField(self, dbName, mfn, field, iteration, subfield):
 		return remove_field_irbis(self.serverInfo, dbName, mfn, field, iteration, subfield)
+	def addRecord(self, dbName, record, format):
+		return add_record_irbis(self.serverInfo, dbName, record, format)
+	def editRecord(self, dbName, mfn, record, format):
+		return edit_record_irbis(self.serverInfo, dbName, mfn, record, format)
 	def maxMFN(self, dbName):
 		return get_max_mfn(self.serverInfo, dbName)
 	def irbis2txt(self, record):
@@ -121,6 +125,21 @@ def get_max_mfn(serverInfo, dbName):
 		print("# ERROR: Exception occured while getting max MFN:")
 		print(ex)
 
+# Convert JSON to Irbis format
+def json2irbis(record):
+	data = json.loads(record)
+	mfn = str(list(data.keys())[0])
+	unifor = ""
+	for field in data[mfn]: # 10,101,102
+		for occurence in data[mfn][field]: # occurence
+			if (type(data[mfn][field][occurence]) is dict): # subfield - dict (^Atext^Btext)
+				unifor = unifor + field + "#"
+				for subfield in data[mfn][field][occurence]: unifor = unifor + "^" + subfield + data[mfn][field][occurence][subfield]
+				unifor = unifor + '\x1f'
+			else:
+				unifor = unifor + field + "#" + data[mfn][field][occurence] + '\x1f' # subfield - string (text)
+	return unifor
+
 # Convert Irbis format to JSON
 def irbis2json(record):
 	record = re.search(r'([0-9]*?)#(.*?)$', record, re.MULTILINE)
@@ -216,7 +235,7 @@ def read_record_irbis(serverInfo, dbName, mfn, format):
 					else:
 						records.append(record)
 			counter += 1
-			return records
+			return records[0] # return as a record and not a list
 		else:
 			print("# ERROR: Encountered error while reading Irbis records (Error code: " + status +")")
 	except ValueError as ex:
@@ -308,6 +327,48 @@ def remove_field_irbis(serverInfo, dbName, mfn, field, iteration, subfield):
 			if ('^' in field_iteration[0]):
 				replaced_subfield = re.sub(r'(?<=\^)' + subfield + '(.*?)(\^|\x1f|$)', '', field_iteration[0])
 			temp = temp.replace(field_iteration[0], replaced_subfield)
+
+		# Send record to Irbis server
+		status = send_record(serverInfo, dbName, block_record, actualize_record, temp)
+		if ("-" in status):
+		#if ("-" not in status):
+		#	print("# Record successfully saved!")
+		#else:
+			print("# ERROR: Encountered error while reading Irbis records (Error code: " + status +")")
+	except ValueError as ex:
+		print("# ERROR: Exception occured while reading Irbis records: ")
+		print(ex)
+
+# Add record by using full record data
+def add_record_irbis(serverInfo, dbName, record, format):
+	edit_record_irbis(serverInfo, dbName, "0", record, format)
+
+# Edit record by using full record data
+def edit_record_irbis(serverInfo, dbName, mfn, record, format):
+	try:
+		global counter
+		counter=+1
+		block_record = "0"
+		actualize_record = "1"
+
+		# Get record's header before modification
+		header = ''
+		if (mfn != "0"):
+			data = get_record_unifor(serverInfo, dbName, "mfn="+mfn)
+			result = re.search(r'[0-9A-Z_]\r\n[0-9]*?\r\n[0-9]*?\r\n[0-9]*?\r\n\r\n\r\n\r\n\r\n\r\n\r\n(.*?)\r\n[0-9]*?\r\n(.*?)\r\n', data.decode("cp1251","ignore"), re.MULTILINE)
+			temp = re.sub(r'(^[0-9]*?)#[0-9]*?\x1f(.*?)', r'\2', result.group(2).strip()) # remove useless rows
+			header = re.search(r'^([0-9]*?#[0-9]*?\x1f[0-9]*?#[0-9]*?\x1f)', temp, re.MULTILINE).group(1).strip()
+		else:
+			header = "0#0\x1f0#" + str(counter)
+		
+		# Convert json to unifor
+		if (format == 'json'): record = json2irbis(record)
+
+		# Re-encode to cp1251
+		record = record.encode("utf_8_sig","ignore").decode("cp1251","ignore")
+
+		# Remove useless rows
+		temp = header + "\x1f" + re.sub(r'^[0-9]*?#[0-9]*?\x1f[0-9]*?#[0-9]*?\x1f[0-9]*?#[0-9]*?\x1f', '', record)
 
 		# Send record to Irbis server
 		status = send_record(serverInfo, dbName, block_record, actualize_record, temp)
