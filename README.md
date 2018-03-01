@@ -85,7 +85,7 @@ Required parameters:
 Required parameters:
 - _dbName_: database name (string)
 - _record_: record in unifor or json formats (string) - uses the structure returned by readRecord/searchRecords functions
-- _format_: output format (string), accepted values - "json", "unifor"
+- _format_: record format (string), accepted values - "json", "unifor"
 
 
 `irbisSocket.editRecord(dbName, mfn, record, format)`: Edit entire record in the database
@@ -94,7 +94,7 @@ Required parameters:
 - _dbName_: database name (string)
 - _mfn_: mfn number of the specific irbis record (string)
 - _record_: record in unifor or json formats (string) - uses the structure returned by readRecord/searchRecords functions
-- _format_: output format (string), accepted values - "json", "unifor"
+- _format_: record format (string), accepted values - "json", "unifor"
 
 
 `mfn = irbisSocket.maxMFN(dbName)`: Get the number of last MFN in the database
@@ -116,6 +116,8 @@ Required parameters:
 	irbisSocket.addField("DATABASE", "86165", "907", "", "^A20180227^BExportBot")
 	irbisSocket.editField("DATABASE", "86165", "907", 0, "B", "NewUserName")
 	irbisSocket.removeField("DATABASE", "86165", "910", "L", "")
+	irbisSocket.addRecord("DATABASE", record, "unifor")
+	irbisSocket.editRecord("DATABASE", "86169", record, "unifor")
   
 	irbisSocket.disconnect()
 	
