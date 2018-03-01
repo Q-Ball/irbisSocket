@@ -98,7 +98,6 @@ Required parameters:
 
 
 `mfn = irbisSocket.maxMFN(dbName)`: Get the number of last MFN in the database
-
 Required parameters:
 - _dbName_: database name (string)
 
