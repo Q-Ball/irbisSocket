@@ -65,6 +65,19 @@ Required parameters:
 - _occurence_: field occurence (integer/string), use integers starting from 0 to specify the field number, use character "L" to specify the last field
 - _subfield_: subfield number, leave empty if want to remove entire field and not just subfield (string)
 
+`irbisSocket.addRecord(dbName, record, format)`: Add new record to the database
+Required parameters:
+- _dbName_: database name (string)
+- _record_: record in unifor or json formats (string) - uses the structure returned by readRecord/searchRecords functions
+- _format_: output format (string), accepted values - "json", "unifor"
+
+`irbisSocket.editRecord(dbName, mfn, record, format)`: Edit entire record in the database
+Required parameters:
+- _dbName_: database name (string)
+- _mfn_: mfn number of the specific irbis record (string)
+- _record_: record in unifor or json formats (string) - uses the structure returned by readRecord/searchRecords functions
+- _format_: output format (string), accepted values - "json", "unifor"
+
 `mfn = irbisSocket.maxMFN(dbName)`: Get the number of last MFN in the database
 Required parameters:
 - _dbName_: database name (string)
