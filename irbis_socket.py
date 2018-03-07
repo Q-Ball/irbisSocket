@@ -5,6 +5,7 @@ import time
 import json
 
 counter = 1
+results_limit = "0" # unlimited
 userID = str(uuid.uuid1().int).replace("0","")[0:6]
 
 # Main class
@@ -30,17 +31,20 @@ class irbisSocket:
 		return edit_record_irbis(self.serverInfo, dbName, mfn, record, format)
 	def maxMFN(self, dbName):
 		return get_max_mfn(self.serverInfo, dbName)
+	def loadGBL(self, dbName, mfnmin, mfnmax, gbl):
+		return load_gbl(self.serverInfo, dbName, mfnmin, mfnmax, gbl)
 	def irbis2txt(self, record):
 		return irbis2txt(record)
 
 # Get all data from socket
 def recvall(socket):
-	data = b""
+	data = [] # faster to use list
 	while True:
 		buf = socket.recv(64000)
-		if (len(buf) == 0): break
-		data += buf	
-	return data
+		if (len(buf) == 0):
+			break
+		data.append(buf)
+	return b''.join(data)
 
 # Get record data in unifor
 def get_record_unifor(serverInfo, dbName, query):
@@ -52,10 +56,8 @@ def get_record_unifor(serverInfo, dbName, query):
 		serverPort = serverInfo["serverPort"]
 		userName = serverInfo["userName"]
 		userPassword = serverInfo["userPassword"]
-		
-		message_body = "\nK\nC\nK\n" + userID + "\n" + str(counter) + "\n" + userPassword + "\n" + userName + "\n\n\n\n" + dbName + "\n\n10000\n1\nmpl, &unifor('+0') \n0\n0\n!if " + query + " then '1' else '0' fi"
+		message_body = "\nK\nC\nK\n" + userID + "\n" + str(counter) + "\n" + userPassword + "\n" + userName + "\n\n\n\n" + dbName + "\n\n" + results_limit + "\n1\nmpl, &unifor('+0') \n0\n0\n!if " + query + " then '1' else '0' fi"
 		message = str(len(message_body) - 1) + message_body # message = message_size + message_body
-
 		s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		s.connect((serverHost, serverPort))
 		s.send(message.encode("cp1251","ignore"))
@@ -76,7 +78,6 @@ def send_message(serverInfo, message):
 		s.connect((serverHost, serverPort))
 		s.send(message.encode("cp1251","ignore"))
 		data = recvall(s)
-		#data = s.recvfrom(64000)
 		s.close()
 		return data
 	except ValueError as ex:
@@ -91,10 +92,8 @@ def send_record(serverInfo, dbName, block_record, actualize_record, temp):
 		counter += 1
 		userName = serverInfo["userName"]
 		userPassword = serverInfo["userPassword"]
-		
 		message_body = "\nD\nC\nD\n" + userID + "\n" + str(counter) + "\n" + userPassword + "\n" + userName + "\n\n\n\n" + dbName + "\n" + block_record + "\n" + actualize_record + "\n" + temp
 		message = str(len(message_body) - 1) + message_body # message = message_size + message_body
-		
 		data = send_message(serverInfo, message)
 		result = re.search(r'[0-9A-Z_]\r\n[0-9]*?\r\n[0-9]*?\r\n[0-9]*?\r\n\r\n\r\n\r\n\r\n\r\n\r\n(.*?)\r\n', data.decode("cp1251","ignore"), re.MULTILINE)
 		return result.group(1).strip()
@@ -123,6 +122,48 @@ def get_max_mfn(serverInfo, dbName):
 			return 0
 	except ValueError as ex:
 		print("# ERROR: Exception occured while getting max MFN:")
+		print(ex)
+
+# Load and exec Irbis gbl
+def load_gbl(serverInfo, dbName, mfnmin, mfnmax, gbl):
+	try:
+		global counter
+		global userID
+		counter += 1
+		userName = serverInfo["userName"]
+		userPassword = serverInfo["userPassword"]
+		serverHost = serverInfo["serverHost"]
+		serverPort = serverInfo["serverPort"]
+		gbl_file_content = ''
+		list_of_mfns = ''
+		num = 0
+		# load GBL file
+		with open(gbl, 'r') as file: gbl_file_content = "!" + str(file.read()).replace("\n","\x1f") + "\x1f"
+		gbl_file_content = gbl_file_content.encode("utf-8","ignore").decode("cp1251","ignore")
+		# generate the list of mfns
+		for i in range(int(mfnmin), int(mfnmax)+1):
+			list_of_mfns = list_of_mfns + str(i) + "\n"
+			num += 1
+		# construct the message
+		message_body = "\n5\nC\n5\n" + userID + "\n" + str(counter) + "\n" + userPassword + "\n" + userName + "\n\n\n\n" + dbName + "\n1\n" + gbl_file_content + "\n\n0\n0\n\n" + str(num) + "\n" + list_of_mfns
+		message = str(len(message_body) - 1) + message_body
+		s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		s.connect((serverHost, serverPort))
+		s.send(message.encode("cp1251","ignore"))
+		data = recvall(s)
+		s.close()
+		if ("\r\n" in data.decode("utf-8")):
+			result = re.search(r'[0-9A-Z_]\r\n[0-9]*?\r\n[0-9]*?\r\n[0-9]*?\r\n\r\n\r\n\r\n\r\n\r\n\r\n(.*?)\r\n', data.decode("utf-8"), re.MULTILINE)
+			status = result.group(1).strip()
+		else:
+			status = data.decode("utf-8")
+		if ("-" not in status):
+			return status
+		else:
+			print("# ERROR: Encountered error while executing GBL file (Error code: " + status +")")
+			return 0
+	except ValueError as ex:
+		print("# ERROR: Exception occured while executing GBL file:")
 		print(ex)
 
 # Convert JSON to Irbis format
@@ -157,7 +198,7 @@ def irbis2json(record):
 			fields[temp.group(1).strip()] = {}
 		subfields = {}
 		for (code, data, dummy) in re.findall(r'(?<=\^)([A-Za-z0-9]{1})(.*?)(\^|$)', temp.group(2).strip(), re.DOTALL):
-			subfields[code] = data
+			subfields[code.upper()] = data
 		if (len(subfields)>0):
 			fields[temp.group(1).strip()][num] = subfields
 		else:
@@ -183,9 +224,9 @@ def connect_irbis(self, serverHost, serverPort, userName, userPassword):
 		s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		s.connect((serverHost, serverPort))
 		s.send(message.encode())
-		data = s.recvfrom(64000)
+		data = s.recv(64000)
 		s.close()
-		result = re.search(r'.{1}\r\n[0-9a-zA-Z]*?\r\n[0-9]*?\r\n[0-9]*?\r\n[0-9.]*?\r\n\r\n\r\n\r\n\r\n\r\n(.*?)\r\n', data[0].decode("cp1251","ignore"), re.MULTILINE).group(1).strip()
+		result = re.search(r'.{1}\r\n[0-9a-zA-Z]*?\r\n[0-9]*?\r\n[0-9]*?\r\n[0-9.]*?\r\n\r\n\r\n\r\n\r\n\r\n(.*?)\r\n', data.decode("cp1251","ignore"), re.MULTILINE).group(1).strip()
 		if (result == '0'):
 			counter += 1
 			#print("# Connected")
@@ -201,6 +242,8 @@ def search_records_irbis(serverInfo, dbName, query, format):
 	try:
 		global counter
 		data = get_record_unifor(serverInfo, dbName, query)
+		#with open('log.txt', 'w', encoding='utf-8') as file:
+		#	file.write(data.decode("cp1251","ignore"))
 		result = re.search(r'[0-9A-Z_]\r\n[0-9]*?\r\n[0-9]*?\r\n[0-9]*?\r\n\r\n\r\n\r\n\r\n\r\n\r\n(.*?)\r\n', data.decode("cp1251","ignore"), re.MULTILINE)
 		status = result.group(1).strip()
 		if (status == '0'):
@@ -394,9 +437,9 @@ def disconnect_irbis(serverInfo):
 	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	s.connect((serverHost, serverPort))
 	s.send(message.encode())
-	data = s.recvfrom(64000)
+	data = s.recv(64000)
 	s.close()
-	result = re.search(r'.{1}\r\n[0-9a-zA-Z]*?\r\n[0-9]*?\r\n[0-9]*?\r\n\r\n\r\n\r\n\r\n\r\n\r\n(.*?)\r\n', data[0].decode("cp1251","ignore"), re.MULTILINE).group(1).strip()
+	result = re.search(r'.{1}\r\n[0-9a-zA-Z]*?\r\n[0-9]*?\r\n[0-9]*?\r\n\r\n\r\n\r\n\r\n\r\n\r\n(.*?)\r\n', data.decode("cp1251","ignore"), re.MULTILINE).group(1).strip()
 	if (result != '0'):
 	#if (result == '0'):
 	#	print("# Disconnected")
