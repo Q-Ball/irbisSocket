@@ -97,12 +97,6 @@ Required parameters:
 - _format_: record format (string), accepted values - "json", "unifor"
 
 
-`mfn = irbisSocket.maxMFN(dbName)`: Get the number of last MFN in the database
-
-Required parameters:
-- _dbName_: database name (string)
-
-
 `irbisSocket.loadGBL(dbName,mfnmin,mfnmax,path_to_gbl)`: Load and execute .gbl file, returns number of modified records
 
 Required parameters:
@@ -110,6 +104,12 @@ Required parameters:
 - _mfnmin_: mfn number of the first record (string)
 - _mfnmin_: mfn number of the last record (string)
 - _path_to_gbl_: path to the .gbl file (string)
+
+
+`mfn = irbisSocket.maxMFN(dbName)`: Get the number of last MFN in the database
+
+Required parameters:
+- _dbName_: database name (string)
 
 
 `irbisSocket.disconnect()`: Disconnect from the Irbis server
@@ -127,6 +127,8 @@ Required parameters:
 	irbisSocket.removeField("DATABASE", "86165", "910", "L", "")
 	irbisSocket.addRecord("DATABASE", record, "unifor")
 	irbisSocket.editRecord("DATABASE", "86169", record, "unifor")
+	irbisSocket.loadGBL("DATABASE", "83001", "83010", "temp.gbl")
+	maxmfn = irbisSocket.maxMFN("DATABASE")
   
 	irbisSocket.disconnect()
 	
