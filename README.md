@@ -97,13 +97,13 @@ Required parameters:
 - _format_: record format (string), accepted values - "json", "unifor"
 
 
-`irbisSocket.loadGBL(dbName,mfnmin,mfnmax,path_to_gbl)`: Load and execute .gbl file, returns number of modified records
+`irbisSocket.loadGBL(dbName, mfnmin, mfnmax, path)`: Load and execute .gbl file, returns number of modified records
 
 Required parameters:
 - _dbName_: database name (string)
 - _mfnmin_: mfn number of the first record (string)
 - _mfnmin_: mfn number of the last record (string)
-- _path_to_gbl_: path to the .gbl file (string)
+- _path_: path to the .gbl file (string)
 
 
 `mfn = irbisSocket.maxMFN(dbName)`: Get the number of last MFN in the database
